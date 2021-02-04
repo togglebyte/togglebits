@@ -6,7 +6,7 @@ use netlib::{Interest, Reactor, Result, System};
 mod game;
 mod server;
 
-fn main() -> Result<()> {
+fn run() -> Result<()> {
     System::builder().finish();
 
     // cleanup possibly stale socket
@@ -26,5 +26,11 @@ fn main() -> Result<()> {
 
     System::start(server)?;
 
+    Ok(())
+}
+
+fn main() -> Result<()> {
+    let h = std::thread::spawn(run);
+    let _ = h.join();
     Ok(())
 }

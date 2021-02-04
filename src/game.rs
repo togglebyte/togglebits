@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use netlib::{Reaction, Reactor, Timer};
 use rand::prelude::*;
+use tinybit::events::{events, Event, EventModel, Events, KeyCode, KeyEvent};
 use tinybit::widgets::Text;
 use tinybit::{term_size, Pixel, Renderer, ScreenPos, ScreenSize, StdoutTarget, Viewport};
 
@@ -31,11 +32,12 @@ pub struct Game {
     viewport: Viewport,
     renderer: Renderer<StdoutTarget>,
     centre: ScreenPos,
+    events: Events,
 }
 
 impl Game {
     pub fn new() -> Self {
-        let freq = Duration::from_millis(300);
+        let freq = Duration::from_millis(100);
 
         let (w, h) = term_size().unwrap();
         let viewport = Viewport::new(ScreenPos::zero(), ScreenSize::new(w, h));
@@ -54,7 +56,8 @@ impl Game {
             },
             viewport,
             renderer,
-            centre: ScreenPos::new(w / 2, h / 2),
+            centre: ScreenPos::new(w / 2 - 4, h / 2),
+            events: events(EventModel::NonBlocking),
         };
 
         inst.restart();
@@ -84,6 +87,19 @@ impl Game {
     }
 
     fn tick(&mut self) {
+        // Sneaky way of being able to quit
+        match self.events.next() {
+            Some(Event::Key(KeyEvent {
+                code: KeyCode::Esc, ..
+            })) => std::process::exit(0),
+            Some(Event::Resize(w, h)) => {
+                self.centre = ScreenPos::new(w / 2, h / 2);
+                self.viewport.resize(w, h);
+                self.renderer.clear();
+            }
+            _ => {}
+        }
+
         match self.scene {
             Scene::GameOver(ref name, ref mut countdown) => {
                 *countdown -= 1;
@@ -92,18 +108,14 @@ impl Game {
                     return;
                 }
                 let text = Text::new(format!("The winner is: {}", name), None, None);
-                self.viewport.draw_widget(
-                    &text,
-                    ScreenPos::new(self.centre.x, self.centre.y),
-                );
+                self.viewport
+                    .draw_widget(&text, ScreenPos::new(self.centre.x, self.centre.y));
 
                 let mut y = self.centre.y + 2;
                 for (name, wins) in &self.leaderboard {
                     let text = Text::new(format!("{} : {}", name, wins), None, None);
-                    self.viewport.draw_widget(
-                        &text,
-                        ScreenPos::new(self.centre.x, y),
-                    );
+                    self.viewport
+                        .draw_widget(&text, ScreenPos::new(self.centre.x, y));
                     y += 1;
                 }
 
@@ -114,7 +126,6 @@ impl Game {
                 ref mut inputs,
                 target,
             } => {
-
                 if active.len() < MAX_ACTIVE {
                     if let Some((val, name)) = inputs.pop_front() {
                         let offset = 7 - val as u16;
@@ -171,12 +182,11 @@ impl Game {
                 if let Some(name) = winner {
                     let entry = self.leaderboard.entry(name.clone()).or_insert(0);
                     *entry += 1;
-                    self.scene = Scene::GameOver(name, 3);
+                    self.scene = Scene::GameOver(name, 30);
                 }
             }
         }
     }
-
 }
 
 impl Reactor for Game {

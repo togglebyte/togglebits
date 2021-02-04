@@ -36,7 +36,6 @@ impl Reactor for Server {
                     loop {
                         match con.read(&mut self.buf) {
                             Ok(0) => {
-                                eprintln!("{:?}", "zero bytes read");
                                 self.connection = None;
                                 return Reaction::Continue;
                             }
